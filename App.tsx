@@ -282,8 +282,8 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedMonth }) => {
         <div className="lg:col-span-2 card-elevated p-8 flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-slate-900 dark:text-white text-lg font-bold">Monthly Spending Curve</h3>
-              <p className="text-slate-500 text-sm">Comparison of actual vs. predicted</p>
+              <h3 className="text-slate-900 dark:text-white text-lg font-bold">Monthly Cash Flow</h3>
+              <p className="text-slate-500 text-sm">Comparison of Income vs. Expenditures</p>
             </div>
             <div className="px-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-400">
               Historical Window
