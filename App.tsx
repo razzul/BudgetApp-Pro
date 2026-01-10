@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import StatCard from './components/StatCard';
 import SpendingChart from './components/SpendingChart';
@@ -10,6 +10,7 @@ import Budgets from './pages/Budgets';
 import Goals from './pages/Goals';
 import DataMapping from './pages/DataMapping';
 import Transactions from './pages/Transactions';
+import Login from './pages/Login';
 import { 
   STATS, 
   SPENDING_CHART_DATA, 
@@ -343,13 +344,34 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedMonth }) => {
 };
 
 const App: React.FC = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(RECENT_MONTHS[0].value);
   const [isArchivesOpen, setIsArchivesOpen] = useState(false);
+
+  // Check for session in localStorage on mount
+  useEffect(() => {
+    const session = localStorage.getItem('precision_session');
+    if (session === 'active') setIsLoggedIn(true);
+  }, []);
+
+  const handleLogin = () => {
+    localStorage.setItem('precision_session', 'active');
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('precision_session');
+    setIsLoggedIn(false);
+  };
+
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <HashRouter>
       <div className="flex h-screen overflow-hidden bg-bg-light dark:bg-bg-dark font-display transition-colors">
-        <Sidebar />
+        <Sidebar onLogout={handleLogout} />
         <main className="flex-1 flex flex-col overflow-hidden">
           <Header 
             selectedMonth={selectedMonth} 
@@ -363,7 +385,7 @@ const App: React.FC = () => {
               <Route path="/budgets" element={<Budgets selectedMonth={selectedMonth} />} />
               <Route path="/goals" element={<Goals />} />
               <Route path="/mapping" element={<DataMapping />} />
-              <Route path="*" element={<Dashboard selectedMonth={selectedMonth} />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
           <footer className="h-10 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 flex items-center justify-between shrink-0">
