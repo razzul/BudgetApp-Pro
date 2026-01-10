@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BUDGET_CATEGORIES as INITIAL_CATEGORIES, RECENT_TRANSACTIONS as INITIAL_TRANSACTIONS } from '../constants';
 import BudgetCategoryCard from '../components/BudgetCategoryCard';
 import { BudgetCategory, Transaction } from '../types';
@@ -18,10 +18,14 @@ const COMMON_ICONS = [
   'movie', 'fitness_center', 'shopping_bag', 'spa', 'theater_comedy',
   'payments', 'account_balance', 'savings', 'credit_card', 'receipt_long',
   'medical_services', 'pill', 'school', 'book', 'stethscope',
-  'work', 'computer', 'star', 'pets', 'child_care'
+  'work', 'computer', 'star', 'pets', 'child_care', 'monitoring', 'trending_up'
 ];
 
-const Budgets: React.FC = () => {
+interface BudgetsProps {
+  selectedMonth: string;
+}
+
+const Budgets: React.FC<BudgetsProps> = ({ selectedMonth }) => {
   const [categories, setCategories] = useState<BudgetCategory[]>(INITIAL_CATEGORIES);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [totalMonthlyBudget, setTotalMonthlyBudget] = useState(5200);
@@ -30,16 +34,22 @@ const Budgets: React.FC = () => {
   const [filterType, setFilterType] = useState<'all' | 'expense' | 'income'>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   
+  // Animation state for confirmation
+  const [highlightedTxId, setHighlightedTxId] = useState<string | null>(null);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<BudgetCategory | null>(null);
   const [newCat, setNewCat] = useState({
     name: '',
     parentCategory: '',
     limit: '',
     icon: 'star',
-    type: 'expense' as 'expense' | 'income'
+    type: 'expense' as 'expense' | 'income',
+    isInvestment: false
   });
 
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [newTx, setNewTx] = useState({
     merchant: '',
     date: new Date().toISOString().split('T')[0],
@@ -48,7 +58,31 @@ const Budgets: React.FC = () => {
     type: 'expense' as 'expense' | 'income'
   });
 
-  const totalSpent = categories.filter(c => c.type === 'expense').reduce((acc, cat) => acc + cat.spent, 0);
+  // Dynamically calculate category "spent" values based on selected month and transactions
+  const processedCategories = useMemo(() => {
+    return categories.map(cat => {
+      const monthTxs = transactions.filter(tx => 
+        tx.date.startsWith(selectedMonth) && 
+        tx.category === cat.name && 
+        tx.type === cat.type
+      );
+      const spent = monthTxs.reduce((sum, tx) => sum + tx.amount, 0);
+      
+      let status = cat.status;
+      if (cat.type === 'expense') {
+        if (spent > cat.limit) status = 'Over Budget';
+        else if (spent > cat.limit * 0.9) status = 'Near Limit';
+        else status = 'On Track';
+      }
+
+      return { ...cat, spent, status };
+    });
+  }, [categories, transactions, selectedMonth]);
+
+  const totalSpent = useMemo(() => 
+    processedCategories.filter(c => c.type === 'expense').reduce((acc, cat) => acc + cat.spent, 0)
+  , [processedCategories]);
+
   const remaining = totalMonthlyBudget - totalSpent;
 
   const handleSaveBudget = () => {
@@ -58,21 +92,37 @@ const Budgets: React.FC = () => {
     }
   };
 
-  const handleOpenModal = (type: 'expense' | 'income' = 'expense') => {
+  const handleOpenModal = (type: 'expense' | 'income' = 'expense', isInvestment = false) => {
+    setEditingCategory(null);
     setNewCat({
       name: '',
-      parentCategory: type === 'income' ? 'Income' : '',
+      parentCategory: isInvestment ? 'Investments' : (type === 'income' ? 'Income' : ''),
       limit: '',
-      icon: type === 'income' ? 'payments' : 'star',
-      type: type
+      icon: isInvestment ? 'monitoring' : (type === 'income' ? 'payments' : 'star'),
+      type: type,
+      isInvestment: isInvestment
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (category: BudgetCategory) => {
+    setEditingCategory(category);
+    setNewCat({
+      name: category.name,
+      parentCategory: category.parentCategory,
+      limit: category.limit.toString(),
+      icon: category.icon,
+      type: category.type,
+      isInvestment: !!category.isInvestment
     });
     setIsModalOpen(true);
   };
 
   const handleOpenTxModal = (type: 'expense' | 'income' = 'expense') => {
+    setEditingTxId(null);
     setNewTx({
       merchant: '',
-      date: new Date().toISOString().split('T')[0],
+      date: `${selectedMonth}-01`, // Default to selected month
       amount: '',
       category: type === 'income' ? 'Salary' : 'General',
       type: type
@@ -80,62 +130,120 @@ const Budgets: React.FC = () => {
     setIsTxModalOpen(true);
   };
 
-  const handleAddCategory = (e: React.FormEvent) => {
+  const handleOpenEditTxModal = (tx: Transaction) => {
+    setEditingTxId(tx.id);
+    setNewTx({
+      merchant: tx.merchant,
+      date: tx.date,
+      amount: tx.amount.toString(),
+      category: tx.category,
+      type: tx.type
+    });
+    setIsTxModalOpen(true);
+  };
+
+  const handleDeleteTransaction = (id: string) => {
+    if (window.confirm('Are you sure you want to permanently delete this transaction record?')) {
+      setTransactions(prev => prev.filter(t => t.id !== id));
+    }
+  };
+
+  const handleSaveCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCat.name || !newCat.limit) return;
-    const category: BudgetCategory = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: newCat.name,
-      parentCategory: newCat.parentCategory || (newCat.type === 'income' ? 'Income' : 'Uncategorized'),
-      spent: 0,
-      limit: parseFloat(newCat.limit),
-      icon: newCat.icon,
-      status: 'Active',
-      colorClass: newCat.type === 'income' ? 'green' : 'primary',
-      type: newCat.type
-    };
-    setCategories([...categories, category]);
+
+    if (editingCategory) {
+      setCategories(prev => prev.map(cat => {
+        if (cat.id === editingCategory.id) {
+          const limitNum = parseFloat(newCat.limit);
+          return {
+            ...cat,
+            name: newCat.name,
+            parentCategory: newCat.parentCategory,
+            limit: limitNum,
+            icon: newCat.icon,
+            type: newCat.type,
+            isInvestment: newCat.isInvestment
+          };
+        }
+        return cat;
+      }));
+    } else {
+      const category: BudgetCategory = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: newCat.name,
+        parentCategory: newCat.parentCategory || (newCat.type === 'income' ? 'Income' : 'Uncategorized'),
+        spent: 0,
+        limit: parseFloat(newCat.limit),
+        icon: newCat.icon,
+        status: 'Active',
+        colorClass: newCat.type === 'income' ? 'green' : (newCat.isInvestment ? 'primary' : 'primary'),
+        type: newCat.type,
+        isInvestment: newCat.isInvestment
+      };
+      setCategories([...categories, category]);
+    }
+    
     setIsModalOpen(false);
+    setEditingCategory(null);
   };
 
-  const handleAddTransaction = (e: React.FormEvent) => {
+  const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTx.merchant || !newTx.amount || !newTx.date) return;
-    const transaction: Transaction = {
-      id: Math.random().toString(36).substr(2, 9),
-      date: newTx.date,
-      merchant: newTx.merchant,
-      category: newTx.category,
-      amount: parseFloat(newTx.amount),
-      type: newTx.type
-    };
-    setTransactions([transaction, ...transactions]);
+    const amountNum = parseFloat(newTx.amount);
+
+    if (editingTxId) {
+      setTransactions(prev => prev.map(tx => {
+        if (tx.id === editingTxId) {
+          return { ...tx, ...newTx, amount: amountNum };
+        }
+        return tx;
+      }));
+      setHighlightedTxId(editingTxId);
+    } else {
+      const transactionId = Math.random().toString(36).substr(2, 9);
+      const transaction: Transaction = {
+        id: transactionId,
+        date: newTx.date,
+        merchant: newTx.merchant,
+        category: newTx.category,
+        amount: amountNum,
+        type: newTx.type
+      };
+      setTransactions([transaction, ...transactions]);
+      setHighlightedTxId(transactionId);
+    }
+
     setIsTxModalOpen(false);
+    setEditingTxId(null);
+    setTimeout(() => setHighlightedTxId(null), 2000);
   };
 
-  const filteredCategories = categories.filter(cat => 
+  const filteredCategories = processedCategories.filter(cat => 
     filterType === 'all' || cat.type === filterType
   );
 
   const selectedCategory = useMemo(() => 
-    categories.find(c => c.id === selectedCategoryId)
-  , [selectedCategoryId, categories]);
+    processedCategories.find(c => c.id === selectedCategoryId)
+  , [selectedCategoryId, processedCategories]);
 
   const relevantTransactions = useMemo(() => {
-    if (!selectedCategory) return transactions.slice(0, 10);
-    return transactions.filter(tx => 
+    // Filter transactions by both month and selected category
+    const monthTxs = transactions.filter(tx => tx.date.startsWith(selectedMonth));
+    if (!selectedCategory) return monthTxs.slice(0, 10);
+    return monthTxs.filter(tx => 
       tx.category.toLowerCase() === selectedCategory.name.toLowerCase() ||
       tx.category.toLowerCase() === selectedCategory.parentCategory.toLowerCase()
     );
-  }, [selectedCategory, transactions]);
+  }, [selectedCategory, transactions, selectedMonth]);
 
   const availableCategories = useMemo(() => 
-    categories.filter(c => c.type === newTx.type)
-  , [categories, newTx.type]);
+    processedCategories.filter(c => c.type === newTx.type)
+  , [processedCategories, newTx.type]);
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-10 animate-in fade-in duration-500">
-      {/* Enhanced Precision Header with Budget & Currency Section */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-elevated border border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-4">
           <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
@@ -143,13 +251,12 @@ const Budgets: React.FC = () => {
           </div>
           <div>
             <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Budget Parameters</h2>
-            <p className="text-slate-500 font-medium">Define your global spending thresholds and base currency</p>
+            <p className="text-slate-500 font-medium">Define your global spending thresholds for {selectedMonth}</p>
           </div>
         </div>
         
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex flex-col sm:flex-row items-center gap-4">
-            {/* Currency Switcher */}
             <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
               {currencies.map((curr) => (
                 <button
@@ -162,7 +269,6 @@ const Budgets: React.FC = () => {
               ))}
             </div>
 
-            {/* Global Budget Input */}
             <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-1 shadow-sm overflow-hidden">
                <div className="flex items-center px-3 text-primary font-black text-sm">{currency.symbol}</div>
                <input 
@@ -184,24 +290,32 @@ const Budgets: React.FC = () => {
           
           <div className="h-10 w-[1px] bg-slate-200 dark:bg-slate-800 hidden md:block"></div>
 
-          <button 
-            onClick={() => handleOpenTxModal('expense')}
-            className="px-6 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all active:scale-95 flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-base">add_card</span>
-            Log Activity
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => handleOpenModal('expense', true)}
+              className="px-6 py-3 bg-white dark:bg-slate-800 border border-primary text-primary rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/5 hover:bg-primary hover:text-white transition-all active:scale-95 flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-base">monitoring</span>
+              New Investment
+            </button>
+            <button 
+              onClick={() => handleOpenTxModal('expense')}
+              className="px-6 py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all active:scale-95 flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-base">add_card</span>
+              Log Activity
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card-elevated p-6 border-b-4 border-b-primary/40">
           <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Global Limit ({currency.code})</p>
           <p className="text-2xl font-black text-slate-900 dark:text-white">{currency.symbol}{totalMonthlyBudget.toLocaleString()}</p>
         </div>
         <div className="card-elevated p-6 border-b-4 border-b-emerald-500/40">
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Allocated</p>
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Spent</p>
           <p className="text-2xl font-black text-slate-900 dark:text-white">{currency.symbol}{totalSpent.toLocaleString()}</p>
         </div>
         <div className={`card-elevated p-6 border-b-4 ${remaining >= 0 ? 'border-b-primary/40' : 'border-b-rose-500/40'}`}>
@@ -212,12 +326,10 @@ const Budgets: React.FC = () => {
         </div>
       </div>
 
-      {/* Categories Section */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Active Segments</h3>
           
-          {/* Dropdown Filter for Category Types */}
           <div className="relative inline-block w-48">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">filter_alt</span>
             <select 
@@ -241,24 +353,26 @@ const Budgets: React.FC = () => {
               currencySymbol={currency.symbol} 
               isSelected={selectedCategoryId === category.id}
               onClick={() => setSelectedCategoryId(category.id === selectedCategoryId ? null : category.id)}
+              onEdit={() => handleOpenEditModal(category)}
             />
           ))}
 
-          <button 
-            onClick={() => handleOpenModal('expense')}
-            className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-primary hover:bg-primary/5 transition-all group min-h-[220px]"
-          >
-            <span className="material-symbols-outlined text-4xl text-slate-300 group-hover:text-primary group-hover:scale-110 transition-all">add_circle</span>
-            <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary">New Category Segment</p>
-          </button>
+          <div className="flex flex-col gap-4">
+            <button 
+              onClick={() => handleOpenModal('expense')}
+              className="flex-1 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:border-primary hover:bg-primary/5 transition-all group min-h-[140px]"
+            >
+              <span className="material-symbols-outlined text-4xl text-slate-300 group-hover:text-primary group-hover:scale-110 transition-all">add_circle</span>
+              <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary">New Category Segment</p>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Detailed Transaction Table (The Log) */}
       <div className="card-elevated p-0 overflow-hidden">
         <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
           <h3 className="text-slate-900 dark:text-white font-bold text-sm">
-            {selectedCategory ? `Audit Log: ${selectedCategory.name}` : 'Recent Activity Log'}
+            {selectedCategory ? `Audit Log: ${selectedCategory.name}` : 'Monthly Activity Log'}
           </h3>
           <button className="text-primary text-[10px] font-black uppercase tracking-widest hover:underline">Export Full Log</button>
         </div>
@@ -270,12 +384,23 @@ const Budgets: React.FC = () => {
                 <th className="py-5 px-8">Date</th>
                 <th className="py-5 px-8">Segment</th>
                 <th className="py-5 px-8 text-right">Amount</th>
+                <th className="py-5 px-8 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {relevantTransactions.map((tx) => (
-                <tr key={tx.id} className="border-b border-slate-50 dark:border-slate-800 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="py-5 px-8 font-bold text-slate-900 dark:text-white">{tx.merchant}</td>
+                <tr 
+                  key={tx.id} 
+                  className={`border-b border-slate-50 dark:border-slate-800 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all group ${tx.id === highlightedTxId ? 'animate-highlight' : ''}`}
+                >
+                  <td className="py-5 px-8">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 dark:text-white">{tx.merchant}</span>
+                      {tx.id === highlightedTxId && (
+                        <span className="material-symbols-outlined text-emerald-500 text-sm animate-in zoom-in fade-in duration-300 fill-1">check_circle</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="py-5 px-8 text-slate-400 text-xs font-semibold">{tx.date}</td>
                   <td className="py-5 px-8">
                     <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[9px] font-bold uppercase tracking-widest text-slate-500">
@@ -285,11 +410,29 @@ const Budgets: React.FC = () => {
                   <td className={`py-5 px-8 text-right font-black ${tx.type === 'income' ? 'text-emerald-500' : 'text-slate-900 dark:text-white'}`}>
                     {tx.type === 'income' ? '+' : '-'}{currency.symbol}{tx.amount.toFixed(2)}
                   </td>
+                  <td className="py-5 px-8 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button 
+                        onClick={() => handleOpenEditTxModal(tx)}
+                        className="size-8 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover:opacity-100"
+                        title="Edit Record"
+                      >
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteTransaction(tx.id)}
+                        className="size-8 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all opacity-0 group-hover:opacity-100"
+                        title="Delete Record"
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {relevantTransactions.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">No activity records found for this selection</td>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">No activity records found for this month</td>
                 </tr>
               )}
             </tbody>
@@ -297,23 +440,32 @@ const Budgets: React.FC = () => {
         </div>
       </div>
 
-      {/* New Category Modal */}
+      {/* Category Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-sm bg-slate-900/40 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg p-10 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-xl p-10 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in duration-300 overflow-y-auto max-h-[90vh] custom-scrollbar">
             <div className="flex justify-between items-center mb-10">
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Create Segment</h3>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                {editingCategory ? 'Modify Segment' : 'Create Segment'}
+              </h3>
               <button onClick={() => setIsModalOpen(false)} className="size-10 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 transition-colors">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             
-            <form onSubmit={handleAddCategory} className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
+            <form onSubmit={handleSaveCategory} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Label</label>
                   <input required type="text" value={newCat.name} onChange={e => setNewCat({...newCat, name: e.target.value})} className="w-full input-precision px-4 py-3 text-sm font-bold" placeholder="e.g. Travel" />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Parent Category</label>
+                  <input required type="text" value={newCat.parentCategory} onChange={e => setNewCat({...newCat, parentCategory: e.target.value})} className="w-full input-precision px-4 py-3 text-sm font-bold" placeholder="e.g. Fixed Costs" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Direction</label>
                   <select value={newCat.type} onChange={e => setNewCat({...newCat, type: e.target.value as 'expense' | 'income'})} className="w-full input-precision px-4 py-3 text-sm font-bold appearance-none">
@@ -321,16 +473,26 @@ const Budgets: React.FC = () => {
                     <option value="income">Income</option>
                   </select>
                 </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Threshold ({currency.symbol})</label>
+                  <input required type="number" value={newCat.limit} onChange={e => setNewCat({...newCat, limit: e.target.value})} className="w-full input-precision px-4 py-3 text-sm font-bold" placeholder="0.00" />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Threshold ({currency.symbol})</label>
-                <input required type="number" value={newCat.limit} onChange={e => setNewCat({...newCat, limit: e.target.value})} className="w-full input-precision px-4 py-3 text-sm font-bold" placeholder="0.00" />
+              <div className="flex items-center gap-3 mb-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                <input 
+                  type="checkbox" 
+                  id="isInvestment" 
+                  checked={newCat.isInvestment} 
+                  onChange={e => setNewCat({...newCat, isInvestment: e.target.checked})}
+                  className="size-4 rounded text-primary focus:ring-primary border-slate-300 dark:border-slate-600 dark:bg-slate-700"
+                />
+                <label htmlFor="isInvestment" className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest cursor-pointer select-none">Mark as Investment Segment</label>
               </div>
 
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Visual Identifier</label>
-                <div className="grid grid-cols-6 gap-2 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700 max-h-40 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-6 md:grid-cols-8 gap-2 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 max-h-40 overflow-y-auto custom-scrollbar">
                   {COMMON_ICONS.map((iconName) => (
                     <button
                       key={iconName}
@@ -345,25 +507,27 @@ const Budgets: React.FC = () => {
               </div>
 
               <button type="submit" className="w-full py-4 bg-primary text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-dark active:scale-95 transition-all">
-                Finalize Segment
+                {editingCategory ? 'Update Audit Segment' : 'Finalize Segment'}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* New Transaction Modal */}
+      {/* Transaction Modal */}
       {isTxModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-sm bg-slate-900/40 animate-in fade-in duration-300">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg p-10 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in duration-300">
             <div className="flex justify-between items-center mb-10">
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Record Activity</h3>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                {editingTxId ? 'Modify Record' : 'Record Activity'}
+              </h3>
               <button onClick={() => setIsTxModalOpen(false)} className="size-10 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 transition-colors">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             
-            <form onSubmit={handleAddTransaction} className="space-y-6">
+            <form onSubmit={handleSaveTransaction} className="space-y-6">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Type</label>
@@ -400,7 +564,7 @@ const Budgets: React.FC = () => {
               </div>
 
               <button type="submit" className={`w-full py-4 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all ${newTx.type === 'income' ? 'bg-emerald-500 shadow-emerald-500/20 hover:bg-emerald-600' : 'bg-rose-500 shadow-rose-500/20 hover:bg-rose-600'}`}>
-                Audit & Record
+                {editingTxId ? 'Update & Record' : 'Audit & Record'}
               </button>
             </form>
           </div>

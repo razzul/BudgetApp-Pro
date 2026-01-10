@@ -71,6 +71,15 @@
         .dark ::-webkit-scrollbar-thumb {
             background: #1e293b;
         }
+
+        /* Subtle Confirmation Animation */
+        @keyframes highlight-fade {
+            0% { background-color: rgba(79, 70, 229, 0.15); }
+            100% { background-color: transparent; }
+        }
+        .animate-highlight {
+            animation: highlight-fade 2s ease-out forwards;
+        }
     </style>
 <script type="importmap">
 {

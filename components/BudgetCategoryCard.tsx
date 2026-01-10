@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BudgetCategory } from '../types';
 
@@ -5,6 +6,7 @@ interface BudgetCategoryCardProps extends BudgetCategory {
   currencySymbol: string;
   isSelected?: boolean;
   onClick?: () => void;
+  onEdit?: (e: React.MouseEvent) => void;
 }
 
 const BudgetCategoryCard: React.FC<BudgetCategoryCardProps> = ({ 
@@ -16,7 +18,9 @@ const BudgetCategoryCard: React.FC<BudgetCategoryCardProps> = ({
   status, 
   currencySymbol,
   isSelected,
-  onClick
+  onClick,
+  onEdit,
+  isInvestment
 }) => {
   const percentage = Math.min((spent / limit) * 100, 100);
   
@@ -37,7 +41,7 @@ const BudgetCategoryCard: React.FC<BudgetCategoryCardProps> = ({
   return (
     <div 
       onClick={onClick}
-      className={`card-elevated p-6 cursor-pointer group ${isSelected ? 'ring-2 ring-primary border-primary' : ''}`}
+      className={`card-elevated p-6 cursor-pointer group relative ${isSelected ? 'ring-2 ring-primary border-primary' : ''}`}
     >
       <div className="flex justify-between items-start mb-6">
         <div className="flex items-center gap-3">
@@ -45,12 +49,28 @@ const BudgetCategoryCard: React.FC<BudgetCategoryCardProps> = ({
             <span className="material-symbols-outlined text-xl">{icon}</span>
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 dark:text-white text-base tracking-tight">{name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-slate-900 dark:text-white text-base tracking-tight">{name}</h3>
+              {isInvestment && (
+                <span className="material-symbols-outlined text-primary text-xs fill-1" title="Investment Type">account_balance</span>
+              )}
+            </div>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{parentCategory}</p>
           </div>
         </div>
-        <div className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest ${statusColors[status] || statusColors['Active']}`}>
-          {status}
+        <div className="flex items-center gap-2">
+          {onEdit && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onEdit(e); }}
+              className="size-8 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover:opacity-100"
+              title="Edit Segment"
+            >
+              <span className="material-symbols-outlined text-lg">edit</span>
+            </button>
+          )}
+          <div className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest ${statusColors[status] || statusColors['Active']}`}>
+            {status}
+          </div>
         </div>
       </div>
       
@@ -74,9 +94,16 @@ const BudgetCategoryCard: React.FC<BudgetCategoryCardProps> = ({
         
         <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
           <span className="text-slate-400">{percentage.toFixed(0)}% Utilized</span>
-          <span className={spent > limit ? 'text-rose-500' : 'text-emerald-500'}>
-            {spent > limit ? `Over by ${currencySymbol}${(spent - limit).toLocaleString()}` : `${currencySymbol}${(limit - spent).toLocaleString()} Available`}
-          </span>
+          {isInvestment ? (
+            <span className="text-primary font-black flex items-center gap-1">
+               <span className="material-symbols-outlined text-[10px]">moving</span>
+               Investment Flow
+            </span>
+          ) : (
+            <span className={spent > limit ? 'text-rose-500' : 'text-emerald-500'}>
+              {spent > limit ? `Over by ${currencySymbol}${(spent - limit).toLocaleString()}` : `${currencySymbol}${(limit - spent).toLocaleString()} Available`}
+            </span>
+          )}
         </div>
       </div>
     </div>

@@ -61,7 +61,8 @@ export const BUDGET_CATEGORIES: BudgetCategory[] = [
     icon: 'shopping_cart',
     status: 'On Track',
     colorClass: 'green',
-    type: 'expense'
+    type: 'expense',
+    isInvestment: false
   },
   {
     id: '2',
@@ -72,7 +73,8 @@ export const BUDGET_CATEGORIES: BudgetCategory[] = [
     icon: 'movie',
     status: 'Near Limit',
     colorClass: 'yellow',
-    type: 'expense'
+    type: 'expense',
+    isInvestment: false
   },
   {
     id: '3',
@@ -83,7 +85,8 @@ export const BUDGET_CATEGORIES: BudgetCategory[] = [
     icon: 'home',
     status: 'Over Budget',
     colorClass: 'red',
-    type: 'expense'
+    type: 'expense',
+    isInvestment: false
   },
   {
     id: '4',
@@ -94,7 +97,8 @@ export const BUDGET_CATEGORIES: BudgetCategory[] = [
     icon: 'directions_car',
     status: 'Active',
     colorClass: 'primary',
-    type: 'expense'
+    type: 'expense',
+    isInvestment: false
   },
   {
     id: '5',
@@ -105,6 +109,19 @@ export const BUDGET_CATEGORIES: BudgetCategory[] = [
     icon: 'payments',
     status: 'Active',
     colorClass: 'green',
-    type: 'income'
+    type: 'income',
+    isInvestment: false
+  },
+  {
+    id: '6',
+    name: 'S&P 500 ETF',
+    parentCategory: 'Investments',
+    spent: 500,
+    limit: 500,
+    icon: 'monitoring',
+    status: 'Active',
+    colorClass: 'primary',
+    type: 'expense',
+    isInvestment: true
   }
 ];

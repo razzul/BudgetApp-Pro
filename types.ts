@@ -16,6 +16,7 @@ export interface CategorySpend {
   name: string;
   value: number;
   color: string;
+  [key: string]: any;
 }
 
 export interface SavingsGoal {
@@ -25,6 +26,7 @@ export interface SavingsGoal {
   saved: number;
   icon: string;
   color: string;
+  linkedCategoryIds?: string[];
 }
 
 export interface Transaction {
@@ -48,4 +50,5 @@ export interface BudgetCategory {
   status: BudgetStatus;
   colorClass: string; // e.g., 'green', 'yellow', 'red', 'primary'
   type: 'expense' | 'income';
+  isInvestment?: boolean;
 }
