@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
@@ -86,7 +87,7 @@ const Header: React.FC<HeaderProps> = ({ selectedMonth, setSelectedMonth, onOpen
   const canGoPrev = !!getStepMonth(selectedMonth, -1);
   
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between bg-white/80 dark:bg-bg-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 md:px-8 py-3 shrink-0">
+    <header className="sticky top-0 z-20 flex items-center justify-between bg-white/80 dark:bg-bg-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 md:px-8 py-3 shrink-0 transition-colors">
       <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
         <button 
           onClick={onOpenMobileMenu}
@@ -101,7 +102,7 @@ const Header: React.FC<HeaderProps> = ({ selectedMonth, setSelectedMonth, onOpen
 
       <div className="flex items-center gap-1.5 md:gap-4 shrink-0">
         {/* Navigation Controls Pod */}
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 md:p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 md:p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
           <button 
             onClick={handlePrev}
             disabled={!canGoPrev}
@@ -115,7 +116,7 @@ const Header: React.FC<HeaderProps> = ({ selectedMonth, setSelectedMonth, onOpen
             <select 
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-white dark:bg-slate-900 border-none rounded-lg py-1 md:py-2 pl-2 pr-7 md:pr-10 text-[10px] md:text-xs font-black uppercase tracking-widest w-24 md:w-48 appearance-none cursor-pointer focus:ring-0 shadow-sm"
+              className="bg-white dark:bg-slate-900 border-none rounded-lg py-1 md:py-2 pl-2 pr-7 md:pr-10 text-[10px] md:text-xs font-black uppercase tracking-widest w-24 md:w-48 appearance-none cursor-pointer focus:ring-0 shadow-sm transition-colors"
             >
               {RECENT_MONTHS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -148,14 +149,14 @@ const Header: React.FC<HeaderProps> = ({ selectedMonth, setSelectedMonth, onOpen
           <span className="material-symbols-outlined text-lg md:text-2xl">calendar_month</span>
         </button>
 
-        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block"></div>
+        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block transition-colors"></div>
 
         <div className="items-center gap-3 hidden sm:flex">
           <button className="flex items-center justify-center size-10 rounded-full border border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
             <span className="material-symbols-outlined">notifications</span>
           </button>
           <button className="flex items-center gap-2">
-            <div className="size-9 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-primary/20 ring-2 ring-white dark:ring-slate-900">AR</div>
+            <div className="size-9 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-primary/20 ring-2 ring-white dark:ring-slate-900 transition-all">AR</div>
           </button>
         </div>
       </div>
@@ -178,7 +179,7 @@ const PastDataModal: React.FC<PastDataModalProps> = ({ isOpen, onClose, selected
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 backdrop-blur-md bg-slate-900/60 animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl p-10 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in duration-300">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-2xl p-10 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in duration-300 transition-colors">
         <div className="flex justify-between items-center mb-10">
           <div className="flex items-center gap-4">
             <div className="size-12 rounded-2xl bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
@@ -259,12 +260,24 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedMonth }) => {
   }, [selectedMonth]);
 
   useEffect(() => {
+    let isMounted = true;
+    const summary = `Month: ${currentMonthLabel}. Status: Analysing recent flows. Progress on savings is consistent.`;
+    
+    // Set loading state immediately for new months
+    setInsight("Scanning financial records...");
+
     const fetchInsight = async () => {
-      const summary = `Month: ${currentMonthLabel}. Status: Analysing recent flows. Progress on savings is consistent.`;
       const res = await getFinancialInsight(summary);
-      setInsight(res || `Solid month so far in ${currentMonthLabel}. Your spending is well aligned with historical benchmarks.`);
+      if (isMounted) {
+        setInsight(res || `Solid month so far in ${currentMonthLabel}. Your spending is well aligned with historical benchmarks.`);
+      }
     };
+    
     fetchInsight();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [selectedMonth, currentMonthLabel]);
 
   return (
@@ -293,7 +306,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedMonth }) => {
               <h3 className="text-slate-900 dark:text-white text-lg font-bold">Monthly Cash Flow</h3>
               <p className="text-slate-500 text-sm">Income vs. Expenditures</p>
             </div>
-            <div className="px-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-400 hidden sm:block">
+            <div className="px-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-400 hidden sm:block transition-colors">
               Historical Window
             </div>
           </div>
@@ -328,7 +341,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedMonth }) => {
             </div>
             <h3 className="text-slate-900 dark:text-white text-lg font-bold">AI Flow Intelligence</h3>
           </div>
-          <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl border border-slate-100 dark:border-slate-800">
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl border border-slate-100 dark:border-slate-800 transition-colors">
             <p className="text-slate-700 dark:text-slate-300 font-medium leading-relaxed italic md:not-italic">
               "{insight}"
             </p>
@@ -356,12 +369,27 @@ const App: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(RECENT_MONTHS[0].value);
   const [isArchivesOpen, setIsArchivesOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark');
+    }
+    return false;
+  });
 
   // Check for session in localStorage on mount
   useEffect(() => {
     const session = localStorage.getItem('precision_session');
     if (session === 'active') setIsLoggedIn(true);
   }, []);
+
+  // Handle Dark Mode Class Sync
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   const handleLogin = () => {
     localStorage.setItem('precision_session', 'active');
@@ -373,6 +401,10 @@ const App: React.FC = () => {
     setIsLoggedIn(false);
   };
 
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   if (!isLoggedIn) {
     return <Login onLogin={handleLogin} />;
   }
@@ -380,12 +412,14 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <div className="flex h-screen overflow-hidden bg-bg-light dark:bg-bg-dark font-display transition-colors">
-        <Sidebar onLogout={handleLogout} />
+        <Sidebar onLogout={handleLogout} isDarkMode={isDarkMode} onToggleDarkMode={toggleDarkMode} />
         {isMobileMenuOpen && (
           <Sidebar 
             onLogout={handleLogout} 
             isMobile={true} 
             onClose={() => setIsMobileMenuOpen(false)} 
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={toggleDarkMode}
           />
         )}
         <main className="flex-1 flex flex-col overflow-hidden">
@@ -405,7 +439,7 @@ const App: React.FC = () => {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
-          <footer className="h-10 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 md:px-8 flex items-center justify-between shrink-0">
+          <footer className="h-10 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 md:px-8 flex items-center justify-between shrink-0 transition-colors">
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
                 <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
