@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
@@ -51,17 +50,18 @@ interface HeaderProps {
   selectedMonth: string;
   setSelectedMonth: (month: string) => void;
   onOpenArchives: () => void;
+  onOpenMobileMenu: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ selectedMonth, setSelectedMonth, onOpenArchives }) => {
+const Header: React.FC<HeaderProps> = ({ selectedMonth, setSelectedMonth, onOpenArchives, onOpenMobileMenu }) => {
   const location = useLocation();
   const getPageTitle = () => {
     switch (location.pathname) {
       case '/budgets': return 'Budgets';
-      case '/goals': return 'Financial Goals';
-      case '/mapping': return 'Sheet Mapping';
-      case '/transactions': return 'Activity Log';
-      case '/analytics': return 'Insights & Analytics';
+      case '/goals': return 'Goals';
+      case '/mapping': return 'Mapping';
+      case '/transactions': return 'Activity';
+      case '/analytics': return 'Analytics';
       default: return 'Overview';
     }
   };
@@ -77,72 +77,80 @@ const Header: React.FC<HeaderProps> = ({ selectedMonth, setSelectedMonth, onOpen
   };
 
   const selectedLabel = useMemo(() => {
-    return ALL_HISTORICAL_MONTHS.find(m => m.value === selectedMonth)?.label || selectedMonth;
+    const monthObj = ALL_HISTORICAL_MONTHS.find(m => m.value === selectedMonth);
+    // On mobile, try to use the short month name
+    return monthObj ? `${monthObj.month} '${String(monthObj.year).slice(-2)}` : selectedMonth;
   }, [selectedMonth]);
 
   const canGoNext = !!getStepMonth(selectedMonth, 1);
   const canGoPrev = !!getStepMonth(selectedMonth, -1);
   
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between bg-white/80 dark:bg-bg-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-8 py-4 shrink-0">
-      <div className="flex items-center gap-4">
-        <h2 className="text-slate-900 dark:text-white text-xl font-extrabold tracking-tight">
+    <header className="sticky top-0 z-20 flex items-center justify-between bg-white/80 dark:bg-bg-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 md:px-8 py-3 shrink-0">
+      <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+        <button 
+          onClick={onOpenMobileMenu}
+          className="lg:hidden size-9 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors shrink-0"
+        >
+          <span className="material-symbols-outlined text-2xl">menu</span>
+        </button>
+        <h2 className="text-slate-900 dark:text-white text-base md:text-xl font-extrabold tracking-tight truncate max-w-[100px] sm:max-w-none">
           {getPageTitle()}
         </h2>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1.5 md:gap-4 shrink-0">
         {/* Navigation Controls Pod */}
-        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 md:p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <button 
             onClick={handlePrev}
             disabled={!canGoPrev}
-            className={`size-10 flex items-center justify-center rounded-lg transition-all ${canGoPrev ? 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-primary active:scale-90' : 'text-slate-300 dark:text-slate-600 opacity-50'}`}
+            className={`size-7 md:size-10 flex items-center justify-center rounded-lg transition-all ${canGoPrev ? 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-primary active:scale-90' : 'text-slate-300 dark:text-slate-600 opacity-50'}`}
             title="Previous Month"
           >
-            <span className="material-symbols-outlined">chevron_left</span>
+            <span className="material-symbols-outlined text-base md:text-xl">chevron_left</span>
           </button>
 
-          <div className="relative group mx-1">
+          <div className="relative group mx-0.5">
             <select 
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-white dark:bg-slate-900 border-none rounded-lg py-2 pl-3 pr-10 text-xs font-black uppercase tracking-widest w-48 appearance-none cursor-pointer focus:ring-0 shadow-sm"
+              className="bg-white dark:bg-slate-900 border-none rounded-lg py-1 md:py-2 pl-2 pr-7 md:pr-10 text-[10px] md:text-xs font-black uppercase tracking-widest w-24 md:w-48 appearance-none cursor-pointer focus:ring-0 shadow-sm"
             >
               {RECENT_MONTHS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
               {!RECENT_MONTHS.some(m => m.value === selectedMonth) && (
-                <option value={selectedMonth}>{selectedLabel}</option>
+                <option value={selectedMonth}>{ALL_HISTORICAL_MONTHS.find(m => m.value === selectedMonth)?.label || selectedMonth}</option>
               )}
             </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-primary transition-colors">
-              <span className="material-symbols-outlined text-lg leading-none">expand_more</span>
+            <div className="absolute right-1.5 md:right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-primary transition-colors">
+              <span className="material-symbols-outlined text-sm md:text-lg leading-none">expand_more</span>
             </div>
           </div>
 
           <button 
             onClick={handleNext}
             disabled={!canGoNext}
-            className={`size-10 flex items-center justify-center rounded-lg transition-all ${canGoNext ? 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-primary active:scale-90' : 'text-slate-300 dark:text-slate-600 opacity-50'}`}
+            className={`size-7 md:size-10 flex items-center justify-center rounded-lg transition-all ${canGoNext ? 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-primary active:scale-90' : 'text-slate-300 dark:text-slate-600 opacity-50'}`}
             title="Next Month"
           >
-            <span className="material-symbols-outlined">chevron_right</span>
+            <span className="material-symbols-outlined text-base md:text-xl">chevron_right</span>
           </button>
         </div>
 
         {/* Global Archive Trigger */}
         <button 
           onClick={onOpenArchives}
-          className="size-11 flex items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white shadow-sm transition-all active:scale-95"
+          className="size-8 md:size-11 flex items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white shadow-sm transition-all active:scale-95 shrink-0"
           title="Open Calendar Archives"
         >
-          <span className="material-symbols-outlined text-2xl">calendar_month</span>
+          <span className="material-symbols-outlined text-lg md:text-2xl">calendar_month</span>
         </button>
 
-        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-2"></div>
+        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block"></div>
 
-        <div className="flex items-center gap-3">
+        <div className="items-center gap-3 hidden sm:flex">
           <button className="flex items-center justify-center size-10 rounded-full border border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
             <span className="material-symbols-outlined">notifications</span>
           </button>
@@ -260,39 +268,39 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedMonth }) => {
   }, [selectedMonth, currentMonthLabel]);
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Welcome back, Alex</h1>
-          <p className="text-slate-500 font-medium">Snapshot for <span className="text-primary font-bold">{currentMonthLabel}</span></p>
+          <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Welcome back, Alex</h1>
+          <p className="text-slate-500 font-medium text-sm md:text-base">Snapshot for <span className="text-primary font-bold">{currentMonthLabel}</span></p>
         </div>
         <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Export PDF</button>
-          <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all">New Entry</button>
+          <button className="flex-1 md:flex-none px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Export PDF</button>
+          <button className="flex-1 md:flex-none px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all">New Entry</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {monthlyStats.map((stat) => (
           <StatCard key={stat.label} {...stat} />
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 card-elevated p-8 flex flex-col gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+        <div className="lg:col-span-2 card-elevated p-6 md:p-8 flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-slate-900 dark:text-white text-lg font-bold">Monthly Cash Flow</h3>
-              <p className="text-slate-500 text-sm">Comparison of Income vs. Expenditures</p>
+              <p className="text-slate-500 text-sm">Income vs. Expenditures</p>
             </div>
-            <div className="px-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <div className="px-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-400 hidden sm:block">
               Historical Window
             </div>
           </div>
           <SpendingChart data={SPENDING_CHART_DATA} />
         </div>
 
-        <div className="card-elevated p-8 flex flex-col">
+        <div className="card-elevated p-6 md:p-8 flex flex-col">
           <h3 className="text-slate-900 dark:text-white text-lg font-bold">Expenditure Mix</h3>
           <p className="text-slate-500 text-sm mb-8">Segmented spending for {currentMonthLabel}</p>
           <div className="flex-1 flex flex-col items-center justify-center">
@@ -312,8 +320,8 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedMonth }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-12">
-        <div className="card-elevated p-8 border-l-4 border-l-primary">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 pb-12">
+        <div className="card-elevated p-6 md:p-8 border-l-4 border-l-primary">
            <div className="flex items-center gap-3 mb-6">
             <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
               <span className="material-symbols-outlined text-2xl">auto_awesome</span>
@@ -321,18 +329,18 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedMonth }) => {
             <h3 className="text-slate-900 dark:text-white text-lg font-bold">AI Flow Intelligence</h3>
           </div>
           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl border border-slate-100 dark:border-slate-800">
-            <p className="text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
+            <p className="text-slate-700 dark:text-slate-300 font-medium leading-relaxed italic md:not-italic">
               "{insight}"
             </p>
           </div>
         </div>
 
-        <div className="card-elevated p-8">
+        <div className="card-elevated p-6 md:p-8">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-slate-900 dark:text-white text-lg font-bold">Active Goals</h3>
             <button className="text-primary text-xs font-bold uppercase tracking-widest hover:underline">Full Report</button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             {SAVINGS_GOALS.map((goal) => (
               <SavingsGoalItem key={goal.id} {...goal} />
             ))}
@@ -347,6 +355,7 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(RECENT_MONTHS[0].value);
   const [isArchivesOpen, setIsArchivesOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Check for session in localStorage on mount
   useEffect(() => {
@@ -372,11 +381,19 @@ const App: React.FC = () => {
     <HashRouter>
       <div className="flex h-screen overflow-hidden bg-bg-light dark:bg-bg-dark font-display transition-colors">
         <Sidebar onLogout={handleLogout} />
+        {isMobileMenuOpen && (
+          <Sidebar 
+            onLogout={handleLogout} 
+            isMobile={true} 
+            onClose={() => setIsMobileMenuOpen(false)} 
+          />
+        )}
         <main className="flex-1 flex flex-col overflow-hidden">
           <Header 
             selectedMonth={selectedMonth} 
             setSelectedMonth={setSelectedMonth} 
             onOpenArchives={() => setIsArchivesOpen(true)}
+            onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
           />
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             <Routes>
@@ -388,14 +405,14 @@ const App: React.FC = () => {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
-          <footer className="h-10 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 flex items-center justify-between shrink-0">
+          <footer className="h-10 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 md:px-8 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
                 <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 Cloud Sync Active
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Precision Budgeting Engine v2.0</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">Precision Budgeting Engine v2.0</p>
           </footer>
         </main>
       </div>
